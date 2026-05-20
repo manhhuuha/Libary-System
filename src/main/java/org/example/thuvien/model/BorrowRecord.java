@@ -13,6 +13,7 @@ public class BorrowRecord {
     private Long id;
 
     private LocalDate borrowDate;
+    private LocalDate dueDate;
     private LocalDate returnDate;
 
     @ManyToOne // Nhiều bản ghi mượn có thể thuộc về 1 User
@@ -22,4 +23,6 @@ public class BorrowRecord {
     @ManyToOne // Nhiều bản ghi mượn có thể thuộc về 1 cuốn sách
     @JoinColumn(name = "book_id")
     private Book book;
+    @Enumerated(EnumType.STRING)
+    private BorrowStatus status;
 }

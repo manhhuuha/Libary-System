@@ -4,12 +4,14 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*; // Import cái này
 import lombok.Data;
+import org.hibernate.annotations.SoftDelete;
 
 import java.util.List;
 
 @Entity
 @Table(name = "books")
 @Data
+@SoftDelete(columnName = "is_deleted")
 public class Book {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,4 +34,12 @@ public class Book {
     @OneToMany(mappedBy = "book")
     @JsonIgnore
     private List<BorrowRecord> borrowRecords;
+    @Enumerated(EnumType.STRING)
+    private BookStatus status = BookStatus.AVAILABLE;
+    private String location;
+
+    // Quan hệ N-1: Nhiều cuốn sách thuộc về 1 Lĩnh vực
+    @ManyToOne(fetch = FetchType.LAZY) // Dùng LAZY để tối ưu hiệu năng (chỉ tải Category khi cần)
+    @JoinColumn(name = "category_id") // Tên cột khóa ngoại trong bảng books
+    private Category category;
 }

@@ -2,6 +2,7 @@ package org.example.thuvien.controller;
 
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
+import org.example.thuvien.dto.BookResponseDTO;
 import org.example.thuvien.model.Book;
 import org.example.thuvien.service.BookService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +19,7 @@ public class BookController {
     private BookService bookService;
 
     @GetMapping // Trả về danh sách sách khi gọi GET /api/books
-    public List<Book> getAll() {
+    public List<BookResponseDTO> getAll() {
         return bookService.getAllBooks();
     }
 
@@ -35,10 +36,11 @@ public class BookController {
     // API: GET http://localhost:8080/api/books/search?title=Harry
     // API: GET http://localhost:8080/api/books/search?author=Rowling
     @GetMapping("/search")
-    public List<Book> searchBooks(
+    public List<BookResponseDTO> searchBooks(
             @RequestParam(required = false) String title,
-            @RequestParam(required = false) String author) {
-        return bookService.searchBooks(title, author);
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) String categoryName) {
+        return bookService.searchBooks(title, author, categoryName);
     }
 
     // Cập nhật sách: PUT /api/books/{id}

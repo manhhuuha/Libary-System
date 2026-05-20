@@ -1,10 +1,13 @@
 package org.example.thuvien.service;
 
+import org.example.thuvien.dto.BookResponseDTO;
+import org.example.thuvien.mapper.BookMapper;
 import org.example.thuvien.model.Book;
 import org.example.thuvien.repository.BookRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class BookService {
@@ -12,8 +15,11 @@ public class BookService {
     @Autowired // Spring tự tìm Repository và gắn vào đây (Dependency Injection)
     private BookRepository bookRepository;
 
-    public List<Book> getAllBooks() {
-        return bookRepository.findAll();
+    @Autowired private BookMapper bookMapper; // Tiêm Mapper vào
+
+    public List<BookResponseDTO> getAllBooks() {
+        List<Book> books = bookRepository.findAll();
+        return bookMapper.toResponseDTOList(books);
     }
 
     public Book saveBook(Book book) {
@@ -26,26 +32,18 @@ public class BookService {
     }
 
     // Tìm 1 cuốn sách theo tên và title
-    public List<Book> searchBooks(String title, String author) {
-        // 1. Nếu có cả title và author (Điều kiện hẹp nhất -> Ưu tiên số 1)
-        if (title != null && !title.isEmpty() && author != null && !author.isEmpty()) {
-            return bookRepository.findByTitleContainingIgnoreCaseAndAuthorContainingIgnoreCase(title, author);
+    public List<BookResponseDTO> searchBooks(String title, String author, String categoryName) {
+        if (isStringEmpty(title) && isStringEmpty(author) && isStringEmpty(categoryName)) {
+            // Nếu không nhập gì, trả về toàn bộ sách trong kho
+            List<Book> allBooks = bookRepository.findAll();
+            return bookMapper.toResponseDTOList(allBooks);
         }
 
-        // 2. Nếu chỉ có title
-        if (title != null && !title.isEmpty()) {
-            return bookRepository.findByTitleContainingIgnoreCase(title);
-        }
-
-        // 3. Nếu chỉ có author
-        if (author != null && !author.isEmpty()) {
-            return bookRepository.findByAuthorContainingIgnoreCase(author);
-        }
-
-        // 4. Nếu không có tham số nào, trả về tất cả sách
-        return bookRepository.findAll();
+        List<Book> books = bookRepository.findByTitleContainingIgnoreCaseOrAuthorContainingIgnoreCaseOrCategoryNameContainingIgnoreCase(
+                title, author, categoryName
+        );
+        return bookMapper.toResponseDTOList(books);
     }
-
     // Cập nhật sách
     public Book updateBook(Long id, Book bookDetails) {
         Book book = getBookById(id); // Kiểm tra tồn tại
@@ -62,5 +60,9 @@ public class BookService {
     public void deleteBook(Long id) {
         Book book = getBookById(id); // Kiểm tra tồn tại
         bookRepository.delete(book);
+    }
+
+    private boolean isStringEmpty(String str) {
+        return str == null || str.trim().isEmpty();
     }
 }

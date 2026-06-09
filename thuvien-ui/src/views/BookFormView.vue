@@ -13,10 +13,6 @@
           <input v-model="form.author" required />
         </div>
         <div class="field">
-          <label>ISBN (10-13 số)</label>
-          <input v-model="form.isbn" pattern="[0-9]{10,13}" />
-        </div>
-        <div class="field">
           <label>Năm xuất bản</label>
           <input v-model.number="form.publishedYear" type="number" min="1000" :max="currentYear" />
         </div>
@@ -24,13 +20,16 @@
           <label>Vị trí</label>
           <input v-model="form.location" />
         </div>
-        <div class="field">
-          <label>Tổng số bản</label>
-          <input v-model.number="form.totalQuantity" type="number" min="0" />
+        <div v-if="!isEdit" class="field">
+          <label>Số bản sao</label>
+          <input v-model.number="form.numberOfCopies" type="number" min="1" max="20" @input="syncIsbns" />
         </div>
-        <div class="field">
-          <label>Số bản có sẵn</label>
-          <input v-model.number="form.availableQuantity" type="number" min="0" />
+        <div v-if="!isEdit" class="field">
+          <label>ISBN từng bản sao</label>
+          <div v-for="(_, i) in form.numberOfCopies" :key="i" style="display:flex;gap:4px;align-items:center;margin-bottom:4px">
+            <span style="min-width:80px">Bản {{ i + 1 }}:</span>
+            <input v-model="form.copyIsbns[i]" style="flex:1" pattern="[0-9]{10,13}" required />
+          </div>
         </div>
         <div class="field">
           <label>Danh mục</label>
@@ -58,8 +57,8 @@ const currentYear = new Date().getFullYear()
 
 const categories = ref([])
 const form = reactive({
-  title: '', author: '', isbn: '', publishedYear: currentYear,
-  location: '', totalQuantity: 1, availableQuantity: 1, categoryId: null
+  title: '', author: '', publishedYear: currentYear,
+  location: '', numberOfCopies: 1, copyIsbns: [''], categoryId: null
 })
 const error = ref('')
 const saving = ref(false)
@@ -76,17 +75,20 @@ onMounted(async () => {
       const b = res.data
       form.title = b.title
       form.author = b.author
-      form.isbn = b.isbn || ''
       form.publishedYear = b.publishedYear
       form.location = b.location || ''
-      form.totalQuantity = b.totalQuantity
-      form.availableQuantity = b.availableQuantity
       form.categoryId = b.category?.id || null
     } catch {
       error.value = 'Không tìm thấy sách.'
     }
   }
 })
+
+function syncIsbns() {
+  const n = form.numberOfCopies
+  while (form.copyIsbns.length < n) form.copyIsbns.push('')
+  if (form.copyIsbns.length > n) form.copyIsbns.splice(n)
+}
 
 async function save() {
   error.value = ''
@@ -95,11 +97,10 @@ async function save() {
     const payload = {
       title: form.title,
       author: form.author,
-      isbn: form.isbn || null,
       publishedYear: form.publishedYear,
       location: form.location || null,
-      totalQuantity: form.totalQuantity,
-      availableQuantity: form.availableQuantity,
+      numberOfCopies: form.numberOfCopies,
+      copyIsbns: form.copyIsbns,
       category: form.categoryId ? { id: form.categoryId } : null
     }
     if (isEdit.value) {

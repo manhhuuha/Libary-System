@@ -49,6 +49,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/borrow/overdue").hasRole("ADMIN")
                         .requestMatchers("/api/borrow/count-book-not-return").hasRole("ADMIN")
                         .requestMatchers("/api/borrow/current").hasRole("ADMIN")
+                        .requestMatchers("/api/borrow/history/**").hasRole("ADMIN")
+                        .requestMatchers("/api/borrow/send-reminder/**").hasRole("ADMIN")
 
                         .requestMatchers("/api/dashboard/**").hasRole("ADMIN")
 

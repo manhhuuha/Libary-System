@@ -1,8 +1,9 @@
 # Đặc tả Frontend — thuvien-ui
 
-> **Phiên bản:** 1.0  
+> **Phiên bản:** 2.0  
 > **Công nghệ:** Vue 3 + Vite 6 + Vue Router 4 + Pinia 3 + Axios  
-> **Kết nối:** REST API backend `thuvien` (Spring Boot) qua HTTP Basic Auth
+> **Kết nối:** REST API backend `thuvien` (Spring Boot) qua HTTP Basic Auth  
+> **Triển khai:** Docker (nginx phục vụ static files, proxy `/api` sang backend)
 
 ---
 
@@ -15,8 +16,8 @@
 | `/` | BooksView | Public | — | Danh sách sách + tìm kiếm |
 | `/books/:id` | BookDetailView | Public | — | Chi tiết sách + vị trí + trạng thái |
 | `/profile` | ProfileView | Authenticated | — | Thông tin tài khoản |
-| `/profile/borrow-history` | BorrowHistoryView | Authenticated | — | Lịch sử mượn |
-| `/profile/current-borrows` | CurrentBorrowsView | Authenticated | — | Sách đang mượn |
+| `/profile/borrow-history` | BorrowHistoryView | PATRON | PATRON | Lịch sử mượn |
+| `/profile/current-borrows` | CurrentBorrowsView | PATRON | PATRON | Sách đang mượn |
 | `/admin/books/new` | BookFormView | Authenticated | ADMIN | Thêm sách mới |
 | `/admin/books/:id/edit` | BookFormView | Authenticated | ADMIN | Sửa sách |
 | `/admin/users` | UsersView | Authenticated | ADMIN | Danh sách người dùng |
@@ -66,18 +67,20 @@ Tất cả request đi qua **Vite proxy** (`/api` → `http://localhost:8080`), 
 - Username/password để trống → backend tự tạo
 
 ### 4.3. BooksView (`/`)
-- Grid hiển thị sách (card: tên, tác giả, danh mục, số bản)
-- Thanh tìm kiếm (debounce 300ms) gọi `GET /api/books/search`
+- Grid hiển thị sách (card: tên, tác giả, danh mục)
+- Thanh tìm kiếm (debounce 300ms) + dropdown lọc danh mục
+- Phân trang (12 sách/trang), gọi `GET /api/books?page=&size=&title=&author=&categoryName=`
 - Click card → `/books/:id`
 
 ### 4.4. BookDetailView (`/books/:id`)
 - Thông tin chi tiết sách dạng bảng, hiển thị vị trí (location) nổi bật
+- Danh sách BookCopy (bản sách) kèm trạng thái từng bản: `AVAILABLE` / `BORROWED` / `DAMAGED` / `LOST`
 - Hướng dẫn mang sách ra bàn thủ tục để mượn
 - ADMIN: nút Sửa, Xóa
 
 ### 4.5. ProfileView (`/profile`)
 - Thông tin user từ `AuthStore.user`
-- Nav bar hiển thị trực tiếp link "Lịch sử mượn" và "Đang mượn" cho mọi user đã đăng nhập
+- Hai nút "Lịch sử mượn" và "Đang mượn" chỉ hiển thị nếu user là PATRON (không có cho ADMIN)
 
 ### 4.6. BorrowHistoryView (`/profile/borrow-history`)
 - Bảng lịch sử mượn (sách, ngày mượn, hạn trả, ngày trả, trạng thái)
@@ -88,7 +91,8 @@ Tất cả request đi qua **Vite proxy** (`/api` → `http://localhost:8080`), 
 - Gọi `GET /api/users/me/current-borrows`
 
 ### 4.8. BookFormView (`/admin/books/new`, `/admin/books/:id/edit`)
-- Form CRUD sách (tiêu đề, tác giả, ISBN, năm XB, vị trí, số bản, danh mục)
+- Form CRUD sách (tiêu đề, tác giả, ISBN, năm XB, vị trí, danh mục)
+- Không còn nhập số lượng bản (BookCopy được tạo tự động qua DataSeeder)
 - Chế độ thêm hoặc sửa dựa trên route params
 - Gọi `POST /api/books` hoặc `PUT /api/books/:id`
 
@@ -97,7 +101,7 @@ Tất cả request đi qua **Vite proxy** (`/api` → `http://localhost:8080`), 
 - Gọi `GET /api/users`
 
 ### 4.10. UserDetailView (`/admin/users/:id`)
-- Chi tiết người dùng
+- Form sửa thông tin người dùng (fullName, email, phone, identityCard, userType, role, active)
 - Nút Xóa người dùng
 
 ### 4.11. CategoriesView (`/admin/categories`)
@@ -105,11 +109,12 @@ Tất cả request đi qua **Vite proxy** (`/api` → `http://localhost:8080`), 
 - Gọi `GET /api/categories`, `POST /api/categories`, `DELETE /api/categories/:id`
 
 ### 4.12. BorrowManagementView (`/admin/borrow`)
-- Tab "Tạo phiếu mượn": nhập CCCD/tên/ID → tra cứu bạn đọc; nhập ID/tên sách → tra cứu sách; xác nhận → `POST /api/borrow`
+- Tab "Tạo phiếu mượn": nhập CCCD/tên/ID → tra cứu bạn đọc; nhập ID/tên sách → chọn đầu sách → chọn BookCopy cụ thể → xác nhận → `POST /api/borrow?userId=&bookCopyId=`
 - Tab "Đang mượn": danh sách chi tiết các bản ghi đang mượn → `GET /api/borrow/current`
 - Tab "Sắp đến hạn": danh sách sách sắp đến hạn → `GET /api/borrow/due-soon`
 - Tab "Quá hạn": danh sách sách quá hạn → `GET /api/borrow/overdue`
-- Tab "Trả sách": nhập ID sách → `PUT /api/borrow/return`
+- Tab "Trả sách": nhập ID BookCopy → `PUT /api/borrow/return?bookCopyId=`
+- Tab "Tất cả lịch sử": danh sách tất cả giao dịch (phân trang) → `GET /api/borrow/history/all`
 
 ### 4.13. DashboardView (`/admin/dashboard`)
 - Grid thống kê: tổng sách, tổng bản, đang mượn, quá hạn, người dùng

@@ -8,6 +8,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -30,25 +31,35 @@ public class NotificationService {
                         BorrowStatus.BORROWING, LocalDate.now().plusDays(3));
 
         for (BorrowRecord record : dueSoonRecords) {
-            String email = record.getUser().getEmail();
-            if (email == null || email.isBlank()) continue;
-
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(email);
-            message.setSubject("Nhắc nhở: Sách sắp đến hạn trả");
-            message.setText(String.format("""
-                    Kính gửi %s,
-
-                    Sách "%s" của bạn sắp đến hạn trả vào ngày %s.
-                    Vui lòng mang sách đến thư viện để trả đúng hạn.
-
-                    Trân trọng,
-                    Thư viện trường học""",
-                    record.getUser().getFullName(),
-                    record.getBook().getTitle(),
-                    record.getDueDate()));
-
-            mailSender.send(message);
+            sendReminder(record);
         }
+    }
+
+    @Transactional
+    public String sendReminder(BorrowRecord record) {
+        if (mailSender == null) return "Email chưa được cấu hình (spring.mail.username/password)";
+
+        String email = record.getUser().getEmail();
+        if (email == null || email.isBlank()) return "Người dùng không có email";
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(email);
+        message.setSubject("Nhắc nhở: Sách sắp đến hạn trả");
+        message.setText(String.format("""
+                Kính gửi %s,
+
+                Sách "%s" của bạn sắp đến hạn trả vào ngày %s.
+                Vui lòng mang sách đến thư viện để trả đúng hạn.
+
+                Trân trọng,
+                Thư viện trường học""",
+                record.getUser().getFullName(),
+                record.getBookCopy().getBook().getTitle(),
+                record.getDueDate()));
+
+        mailSender.send(message);
+        record.setEmailSent(true);
+        borrowRepository.save(record);
+        return "Đã gửi email nhắc nhở đến " + email;
     }
 }

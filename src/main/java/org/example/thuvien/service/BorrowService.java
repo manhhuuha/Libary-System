@@ -3,7 +3,7 @@ package org.example.thuvien.service;
 import org.example.thuvien.exception.BusinessException;
 import org.example.thuvien.exception.ResourceNotFoundException;
 import org.example.thuvien.model.*;
-import org.example.thuvien.repository.BookRepository;
+import org.example.thuvien.repository.BookCopyRepository;
 import org.example.thuvien.repository.BorrowRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -15,17 +15,18 @@ import java.util.List;
 @Service
 public class BorrowService {
     @Autowired private BorrowRepository borrowRepository;
-    @Autowired private BookRepository bookRepository;
+    @Autowired private BookCopyRepository bookCopyRepository;
     @Autowired private UserService userService;
+    @Autowired private NotificationService notificationService;
 
     @Transactional
-    public BorrowRecord borrowBook(Long userId, Long bookId) {
+    public BorrowRecord borrowBook(Long userId, Long bookCopyId, LocalDate dueDate) {
         User user = userService.getUserById(userId);
-        Book book = bookRepository.findById(bookId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sách ID: " + bookId));
+        BookCopy bookCopy = bookCopyRepository.findById(bookCopyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bản sách ID: " + bookCopyId));
 
-        if (book.getAvailableQuantity() <= 0) {
-            throw new BusinessException("Xin lỗi, sách này hiện đã hết bản có thể mượn!");
+        if (bookCopy.getStatus() != BookCopyStatus.AVAILABLE) {
+            throw new BusinessException("Bản sách này hiện không có sẵn để mượn!");
         }
 
         long currentBorrowed = borrowRepository.countByUserIdAndReturnDateIsNull(userId);
@@ -38,35 +39,30 @@ public class BorrowService {
             throw new BusinessException("Bạn đang có sách quá hạn chưa trả, không thể mượn thêm!");
         }
 
-        book.setAvailableQuantity(book.getAvailableQuantity() - 1);
-        if (book.getAvailableQuantity() == 0) {
-            book.setStatus(BookStatus.BORROWED);
-        }
-        bookRepository.save(book);
+        bookCopy.setStatus(BookCopyStatus.BORROWED);
+        bookCopyRepository.save(bookCopy);
 
         BorrowRecord record = new BorrowRecord();
         record.setUser(user);
-        record.setBook(book);
+        record.setBookCopy(bookCopy);
         record.setBorrowDate(LocalDate.now());
-        record.setDueDate(LocalDate.now().plusDays(14));
+        record.setDueDate(dueDate != null ? dueDate : LocalDate.now().plusDays(14));
         record.setStatus(BorrowStatus.BORROWING);
+        record.setEmailSent(false);
         return borrowRepository.save(record);
     }
 
     @Transactional
-    public BorrowRecord returnBook(Long bookId) {
-        BorrowRecord record = borrowRepository.findByBookIdAndReturnDateIsNull(bookId)
-                .orElseThrow(() -> new ResourceNotFoundException("Dữ liệu mượn trả không hợp lệ!"));
+    public BorrowRecord returnBook(Long bookCopyId) {
+        BorrowRecord record = borrowRepository.findByBookCopyIdAndReturnDateIsNull(bookCopyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Bản sách này chưa được mượn hoặc đã trả!"));
 
         record.setReturnDate(LocalDate.now());
         record.setStatus(BorrowStatus.RETURNED);
 
-        Book book = record.getBook();
-        book.setAvailableQuantity(book.getAvailableQuantity() + 1);
-        if (book.getAvailableQuantity() > 0) {
-            book.setStatus(BookStatus.AVAILABLE);
-        }
-        bookRepository.save(book);
+        BookCopy bookCopy = record.getBookCopy();
+        bookCopy.setStatus(BookCopyStatus.AVAILABLE);
+        bookCopyRepository.save(bookCopy);
 
         return borrowRepository.save(record);
     }
@@ -98,5 +94,20 @@ public class BorrowService {
 
     public List<BorrowRecord> getCurrentBorrowsByUser(Long userId) {
         return borrowRepository.findByUserIdAndReturnDateIsNull(userId);
+    }
+
+    public List<BorrowRecord> getBorrowHistoryByUser(Long userId) {
+        return borrowRepository.findByUserId(userId);
+    }
+
+    public List<BorrowRecord> getAllBorrowHistory() {
+        return borrowRepository.findAllByOrderByBorrowDateDesc();
+    }
+
+    @Transactional
+    public String sendReminder(Long recordId) {
+        BorrowRecord record = borrowRepository.findById(recordId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bản ghi mượn ID: " + recordId));
+        return notificationService.sendReminder(record);
     }
 }

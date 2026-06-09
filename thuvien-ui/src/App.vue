@@ -6,8 +6,8 @@
         <div class="nav-links">
           <template v-if="auth.isAuthenticated">
             <router-link to="/profile">{{ auth.user?.fullName || auth.username }}</router-link>
-            <router-link to="/profile/borrow-history">Lịch sử mượn</router-link>
-            <router-link to="/profile/current-borrows">Đang mượn</router-link>
+            <router-link v-if="!auth.isAdmin" to="/profile/borrow-history">Lịch sử mượn</router-link>
+            <router-link v-if="!auth.isAdmin" to="/profile/current-borrows">Đang mượn</router-link>
             <template v-if="auth.isAdmin">
               <router-link to="/admin/dashboard">Thống kê</router-link>
               <router-link to="/admin/books/new">+ Thêm sách</router-link>

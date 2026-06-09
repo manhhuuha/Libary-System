@@ -14,6 +14,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import java.util.List;
 
 @Service
@@ -34,6 +36,10 @@ public class UserService {
     public List<UserResponseDTO> getAllUsers() {
         List<User> users = userRepository.findAll();
         return userMapper.toResponseDTOList(users);
+    }
+
+    public Page<UserResponseDTO> getUsersPaged(int page, int size) {
+        return userRepository.findAll(PageRequest.of(page, size)).map(userMapper::toResponseDTO);
     }
 
     public User saveUser(User user) {

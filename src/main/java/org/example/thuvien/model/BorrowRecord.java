@@ -16,13 +16,16 @@ public class BorrowRecord {
     private LocalDate dueDate;
     private LocalDate returnDate;
 
-    @ManyToOne // Nhiều bản ghi mượn có thể thuộc về 1 User
+    @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
 
-    @ManyToOne // Nhiều bản ghi mượn có thể thuộc về 1 cuốn sách
-    @JoinColumn(name = "book_id")
-    private Book book;
+    @ManyToOne
+    @JoinColumn(name = "book_copy_id")
+    private BookCopy bookCopy;
+
     @Enumerated(EnumType.STRING)
     private BorrowStatus status;
+
+    private Boolean emailSent = false;
 }

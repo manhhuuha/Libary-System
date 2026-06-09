@@ -6,6 +6,7 @@ import org.example.thuvien.dto.UserResponseDTO;
 import org.example.thuvien.model.BorrowRecord;
 import org.example.thuvien.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -45,6 +46,13 @@ public class UserController {
     @GetMapping
     public List<UserResponseDTO> getAll() {
         return userService.getAllUsers();
+    }
+
+    @GetMapping("/paged")
+    public Page<UserResponseDTO> getPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return userService.getUsersPaged(page, size);
     }
 
     @GetMapping("/{id}")

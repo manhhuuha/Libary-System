@@ -62,6 +62,52 @@ src/main/java/org/example/thuvien/
 └── service/         # Business logic layer
 ```
 
+## Triển khai với Docker
+
+### Yêu cầu
+
+- Docker & Docker Compose
+
+### Cấu trúc
+
+```
+Dockerfile              # Backend (Spring Boot)
+thuvien-ui/Dockerfile   # Frontend (Vue + nginx)
+docker-compose.yml      # Orchestrator
+```
+
+### Biến môi trường
+
+| Biến | Mặc định | Mô tả |
+|---|---|---|
+| `DB_USERNAME` | `sa` | Username database (H2) |
+| `DB_PASSWORD` | *(rỗng)* | Password database |
+| `MAIL_USERNAME` | *(rỗng)* | Email gửi thông báo |
+| `MAIL_PASSWORD` | *(rỗng)* | App password email |
+
+### Build & chạy
+
+```powershell
+docker compose up -d --build
+```
+
+- **Frontend:** http://localhost:80
+- **Backend API:** http://localhost:8080
+- **Swagger UI:** http://localhost:8080/swagger-ui/
+- **H2 Console:** http://localhost:8080/h2-console
+
+### Dừng
+
+```powershell
+docker compose down
+```
+
+Xoá luôn volume database:
+
+```powershell
+docker compose down -v
+```
+
 ## Build & Test
 
 ```powershell

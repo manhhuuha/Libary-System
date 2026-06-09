@@ -2,6 +2,7 @@ import api from './index'
 
 export const userApi = {
   getAll: () => api.get('/users'),
+  getPaged: (page, size) => api.get('/users/paged', { params: { page, size } }),
   getById: id => api.get(`/users/${id}`),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: id => api.delete(`/users/${id}`),

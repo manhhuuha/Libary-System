@@ -22,6 +22,7 @@ public class DataSeeder implements CommandLineRunner {
     @Autowired private UserRepository userRepository;
     @Autowired private CategoryRepository categoryRepository;
     @Autowired private BookRepository bookRepository;
+    @Autowired private BookCopyRepository bookCopyRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private JdbcTemplate jdbcTemplate;
 
@@ -41,12 +42,14 @@ public class DataSeeder implements CommandLineRunner {
         seedCategories();
         seedUsers();
         seedBooks();
-        log.info("Seed dữ liệu hoàn tất: 1 admin, 99 users, {} categories, {} books.",
-                categoryRepository.count(), bookRepository.count());
+        long copyCount = bookCopyRepository.count();
+        log.info("Seed dữ liệu hoàn tất: admin/admin, 99 users, {} categories, {} books, {} bản sao.",
+                categoryRepository.count(), bookRepository.count(), copyCount);
     }
 
     private void hardDeleteAll() {
         jdbcTemplate.execute("DELETE FROM borrow_records");
+        jdbcTemplate.execute("DELETE FROM book_copies");
         jdbcTemplate.execute("DELETE FROM books");
         jdbcTemplate.execute("DELETE FROM users");
         jdbcTemplate.execute("DELETE FROM categories");
@@ -88,6 +91,10 @@ public class DataSeeder implements CommandLineRunner {
             user.setCreatedAt(LocalDateTime.now());
 
             if (i == 0) {
+                user.setFullName("ADMIN");
+                user.setEmail("admin@library.edu.vn");
+                user.setUsername("admin");
+                user.setPassword(passwordEncoder.encode("admin"));
                 user.setRole("ADMIN");
                 user.setUserType(null);
             } else {
@@ -101,6 +108,7 @@ public class DataSeeder implements CommandLineRunner {
     private void seedBooks() {
         List<Category> categories = categoryRepository.findAll();
         Random rand = new Random();
+        Set<String> usedIsbns = new HashSet<>();
 
         String[] subjects = {
                 "Lập trình Java", "Python cơ bản", "Cấu trúc dữ liệu", "Giải thuật", "Mạng máy tính",
@@ -146,19 +154,24 @@ public class DataSeeder implements CommandLineRunner {
                 Book book = new Book();
                 String subject = subjects[si];
                 book.setTitle(titlePatterns[p].formatted(subject));
-
                 book.setAuthor(authors[rand.nextInt(authors.length)]);
-                book.setIsbn(generateIsbn(rand));
                 book.setPublishedYear(1980 + rand.nextInt(46));
                 book.setLocation(shelfRows[rand.nextInt(shelfRows.length)] + "-"
                         + (rand.nextInt(50) + 1));
-                int qty = rand.nextInt(5) + 1;
-                book.setTotalQuantity(qty);
-                book.setAvailableQuantity(qty);
-                book.setStatus(BookStatus.AVAILABLE);
                 book.setCategory(categories.get(rand.nextInt(categories.size())));
-
                 bookRepository.save(book);
+
+                int qty = rand.nextInt(5) + 1;
+                for (int c = 1; c <= qty; c++) {
+                    BookCopy copy = new BookCopy();
+                    copy.setBook(book);
+                    copy.setCopyNumber(String.valueOf(c));
+                    String isbn;
+                    do { isbn = generateIsbn(rand); } while (!usedIsbns.add(isbn));
+                    copy.setIsbn(isbn);
+                    copy.setStatus(BookCopyStatus.AVAILABLE);
+                    bookCopyRepository.save(copy);
+                }
                 count++;
             }
         }

@@ -1,0 +1,10 @@
+target/
+.mvn/wrapper/maven-wrapper.jar
+data/
+.git/
+.gitattributes
+.gitignore
+.idea/
+HELP.md
+*.md
+thuvien-ui/

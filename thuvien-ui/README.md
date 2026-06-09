@@ -49,6 +49,16 @@ Mở trình duyệt tại `http://localhost:5173`.
 - Quản lý mượn/trả (trả sách, xem sắp hạn/quá hạn, đếm chưa trả)
 - Dashboard thống kê
 
+## Triển khai với Docker
+
+```powershell
+docker compose up -d --build
+```
+
+Frontend được build static, phục vụ qua nginx tại port 80. API proxy qua `/api/` → backend container.
+
+Xem thêm `docker-compose.yml` và `Dockerfile` ở thư mục gốc project.
+
 ## Cấu trúc thư mục
 
 ```
@@ -63,5 +73,7 @@ thuvien-ui/
 ├── index.html
 ├── package.json
 ├── vite.config.js
+├── Dockerfile
+├── nginx.conf
 └── README.md
 ```

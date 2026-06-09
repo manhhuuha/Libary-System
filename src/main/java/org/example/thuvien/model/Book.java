@@ -1,11 +1,9 @@
 package org.example.thuvien.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 import org.hibernate.annotations.SoftDelete;
-
 import java.util.List;
 
 @Entity
@@ -24,29 +22,19 @@ public class Book {
     @NotBlank(message = "Tên tác giả không được để trống")
     private String author;
 
-    @Pattern(regexp = "^[0-9]{10,13}$", message = "ISBN phải là số từ 10 đến 13 chữ số")
-    private String isbn;
-
     @Min(value = 1000, message = "Năm xuất bản không hợp lệ")
-    @Max(value = 2025, message = "Năm xuất bản không được lớn hơn năm hiện tại")
+    @Max(value = 2026, message = "Năm xuất bản không được lớn hơn năm hiện tại")
     private int publishedYear;
 
-    @OneToMany(mappedBy = "book")
-    @JsonIgnore
-    private List<BorrowRecord> borrowRecords;
-
-    @Enumerated(EnumType.STRING)
-    private BookStatus status = BookStatus.AVAILABLE;
-
     private String location;
-
-    @Min(value = 0, message = "Tổng số lượng không được âm")
-    private int totalQuantity;
-
-    @Min(value = 0, message = "Số lượng khả dụng không được âm")
-    private int availableQuantity;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
+
+    @Transient
+    private int numberOfCopies = 1;
+
+    @Transient
+    private List<String> copyIsbns;
 }

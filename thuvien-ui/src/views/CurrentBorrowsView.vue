@@ -11,7 +11,7 @@
       </thead>
       <tbody>
         <tr v-for="r in records" :key="r.id">
-          <td><router-link :to="'/books/' + r.book?.id">{{ r.book?.title }}</router-link></td>
+          <td><router-link :to="'/books/' + r.bookCopy?.book?.id">{{ r.bookCopy?.book?.title }}</router-link></td>
           <td>{{ r.borrowDate }}</td>
           <td>{{ r.dueDate }}</td>
           <td><span :class="'status-' + r.status.toLowerCase()">{{ statusLabel(r.status) }}</span></td>

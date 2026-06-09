@@ -1,8 +1,9 @@
 # Đặc tả tính năng — Hệ thống Quản lý Thư viện (thuvien)
 
-> **Phiên bản:** 2.0  
-> **Công nghệ:** Java 21, Spring Boot 4.x, Spring Security, Spring Data JPA, PostgreSQL 17, MapStruct, Swagger/OpenAPI  
-> **Kiến trúc:** Controller → Service → Repository → PostgreSQL
+> **Phiên bản:** 2.1  
+> **Công nghệ:** Java 21, Spring Boot 4.x, Spring Security, Spring Data JPA, PostgreSQL 17 / H2, MapStruct, Swagger/OpenAPI  
+> **Kiến trúc:** Controller → Service → Repository → Database (H2 file / PostgreSQL)  
+> **Triển khai:** Docker (multi-stage build + docker-compose)
 
 ---
 
@@ -26,6 +27,23 @@
 ## 1. Tổng quan
 
 Hệ thống quản lý thư viện trường học, cho phép quản lý sách, người dùng (học sinh, giáo viên, khách), danh mục và hoạt động mượn/trả sách. Hỗ trợ phân quyền, thống kê, và gửi email nhắc nhở hạn trả.
+
+### Mô hình dữ liệu
+
+```
+Book (đầu sách)           BookCopy (bản sách)        BorrowRecord
+┌──────────────────┐     ┌──────────────────┐     ┌───────────────────┐
+│ id               │◄────│ book_id (FK)      │     │ user_id           │
+│ title            │     │ id                │◄────│ book_copy_id (FK) │
+│ author           │     │ copyNumber        │     │ borrowDate        │
+│ isbn (unique)    │     │ status (AVAILABLE │     │ dueDate           │
+│ publishedYear    │     │        │BORROWED  │     │ returnDate        │
+│ location         │     │        │DAMAGED   │     │ status            │
+│ category_id (FK) │     │        │LOST)     │     │ emailSent         │
+└──────────────────┘     └──────────────────┘     └───────────────────┘
+```
+
+Mỗi Book có 1–nhiều BookCopy. Mỗi lần mượn là mượn 1 BookCopy cụ thể.
 
 ---
 
@@ -61,15 +79,15 @@ Hệ thống quản lý thư viện trường học, cho phép quản lý sách,
 | `DELETE /api/users/{id}` | ✓ | | |
 | `GET /api/books` | ✓ | ✓ | ✓ |
 | `GET /api/books/{id}` | ✓ | ✓ | ✓ |
-| `GET /api/books/search` | ✓ | ✓ | ✓ |
+| `GET /api/books/{id}/copies` | ✓ | ✓ | ✓ |
 | `POST /api/books` | ✓ | | |
 | `PUT /api/books/{id}` | ✓ | | |
 | `DELETE /api/books/{id}` | ✓ | | |
 | `GET /api/categories` | ✓ | ✓ | ✓ |
 | `POST /api/categories` | ✓ | | |
 | `DELETE /api/categories/{id}` | ✓ | | |
-| `POST /api/borrow` | ✓ | | |
-| `PUT /api/borrow/return` | ✓ | | |
+| `POST /api/borrow?userId=&bookCopyId=&dueDate=` | ✓ | | |
+| `PUT /api/borrow/return?bookCopyId=` | ✓ | | |
 | `GET /api/borrow/due-soon` | ✓ | | |
 | `GET /api/borrow/overdue` | ✓ | | |
 | `GET /api/borrow/count-book-not-return` | ✓ | | |
@@ -179,53 +197,58 @@ Category được soft delete qua `@SoftDelete(columnName = "is_deleted")`.
 | `id` | Long (PK, auto-increment) | | |
 | `title` | String | `@NotBlank`, `@Size(min=2, max=100)` | Tên sách |
 | `author` | String | `@NotBlank` | Tác giả |
-| `isbn` | String | `@Pattern(regexp="^[0-9]{10,13}$")` | Mã ISBN 10–13 chữ số |
+| `isbn` | String | `@Pattern(regexp="^[0-9]{10,13}$")`, `@Column(unique=true)` | Mã ISBN 10–13 chữ số |
 | `publishedYear` | int | `@Min(1000)`, `@Max(value=2025)` | Năm xuất bản |
 | `location` | String | | Vị trí trên kệ sách |
-| `totalQuantity` | int | `@Min(0)` | Tổng số bản sách trong thư viện |
-| `availableQuantity` | int | `@Min(0)` | Số bản hiện có thể mượn |
-| `status` | BookStatus enum | | `AVAILABLE` / `BORROWED` (giữ lại để tương thích) |
 | `category` | Category | `@ManyToOne(fetch=LAZY)` | Danh mục |
-| `borrowRecords` | List\<BorrowRecord\> | `@OneToMany`, `@JsonIgnore` | |
 
-### 6.2. Quy tắc trạng thái sách
+### 6.2. Entity — `BookCopy`
 
-- **`availableQuantity > 0`:** Sách có thể mượn.
-- **`availableQuantity = 0`:** Sách đã hết bản có thể mượn.
-- **`status`:** Trường enum `BookStatus` (`AVAILABLE` / `BORROWED`) được giữ lại vì mục đích tương thích, nhưng **`availableQuantity` là trường quyết định** điều kiện mượn/trả.
+| Trường | Kiểu | Ràng buộc | Ghi chú |
+|---|---|---|---|
+| `id` | Long (PK, auto-increment) | | |
+| `book` | Book | `@ManyToOne(fetch=LAZY)` | Đầu sách |
+| `copyNumber` | int | | Số thứ tự bản sao (1, 2, 3...) |
+| `status` | BookCopyStatus enum | | `AVAILABLE` / `BORROWED` / `DAMAGED` / `LOST` |
 
-> Điều kiện để mượn: `availableQuantity > 0`.
+### 6.3. Quy tắc trạng thái BookCopy
 
-### 6.3. API
+- **`AVAILABLE`:** Bản sách có thể mượn.
+- **`BORROWED`:** Đang được mượn.
+- **`DAMAGED`:** Hư hỏng, không thể mượn.
+- **`LOST`:** Mất, không thể mượn.
+
+> Khi mượn: BookCopy được chọn cụ thể, không chỉ định đầu sách chung.
+
+### 6.4. API
 
 | Phương thức | Endpoint | Quyền | Mô tả | Request | Response |
 |---|---|---|---|---|---|
-| `GET` | `/api/books` | Public | Danh sách tất cả sách | — | `List<BookResponseDTO>` |
+| `GET` | `/api/books?page=&size=&title=&author=&categoryName=` | Public | Danh sách sách (phân trang) | Query params | `Page<BookResponseDTO>` |
 | `GET` | `/api/books/{id}` | Public | Chi tiết 1 sách | — | `Book` |
-| `GET` | `/api/books/search?title=&author=&categoryName=` | Public | Tìm kiếm sách | Query params | `List<BookResponseDTO>` |
+| `GET` | `/api/books/{id}/copies` | Public | Danh sách BookCopy của sách | — | `List<BookCopy>` |
 | `POST` | `/api/books` | ADMIN | Thêm sách mới | `Book` | `Book` |
 | `PUT` | `/api/books/{id}` | ADMIN | Cập nhật sách | `Book` | `Book` |
 | `DELETE` | `/api/books/{id}` | ADMIN | Xóa sách | — | `String` (thông báo) |
 
-### 6.4. Tìm kiếm sách (`GET /api/books/search`)
+### 6.5. Tìm kiếm sách (`GET /api/books`)
 
-Query params (tất cả optional, không phân biệt hoa/thường):
+Query params (tất cả optional, không phân biệt hoa/thường, dùng logic AND):
 
 | Param | Mô tả |
 |---|---|
+| `page` | Số trang (mặc định 0) |
+| `size` | Kích thước trang (mặc định 12) |
 | `title` | Tìm theo tiêu đề |
 | `author` | Tìm theo tác giả |
 | `categoryName` | Tìm theo tên danh mục |
 
-Nếu không có param nào, trả về toàn bộ sách.
-
-### 6.5. DTO — `BookResponseDTO`
+### 6.6. DTO — `BookResponseDTO`
 
 ```java
 public record BookResponseDTO(
     Long id, String title, String author, String isbn,
-    String location, BookStatus status, String categoryName,
-    int totalQuantity, int availableQuantity
+    String location, String categoryName
 ) {}
 ```
 
@@ -249,7 +272,7 @@ Book được soft delete qua `@SoftDelete(columnName = "is_deleted")`.
 | `returnDate` | LocalDate | nullable | Ngày trả thực tế (null nếu chưa trả) |
 | `status` | BorrowStatus enum | `@NotNull` | `BORROWING` / `RETURNED` / `OVERDUE` |
 | `user` | User | `@ManyToOne` | Người mượn |
-| `book` | Book | `@ManyToOne` | Sách được mượn |
+| `bookCopy` | BookCopy | `@ManyToOne` | Bản sách cụ thể được mượn |
 
 ### 7.2. BorrowStatus Enum
 
@@ -265,12 +288,14 @@ public enum BorrowStatus {
 
 | Phương thức | Endpoint | Quyền | Mô tả | Request | Response |
 |---|---|---|---|---|---|
-| `POST` | `/api/borrow?userId=&bookId=` | ADMIN | Mượn sách (thủ thư tạo phiếu) | Query params | `BorrowRecord` |
-| `PUT` | `/api/borrow/return?bookId=` | ADMIN | Đánh dấu đã trả sách | Query param | `BorrowRecord` |
+| `POST` | `/api/borrow?userId=&bookCopyId=&dueDate=` | ADMIN | Mượn sách (thủ thư tạo phiếu) | Query params | `BorrowRecord` |
+| `PUT` | `/api/borrow/return?bookCopyId=` | ADMIN | Đánh dấu đã trả sách | Query param | `BorrowRecord` |
 | `GET` | `/api/borrow/due-soon` | ADMIN | Danh sách sắp đến hạn (≤ 3 ngày) | — | `List<BorrowRecord>` |
 | `GET` | `/api/borrow/overdue` | ADMIN | Danh sách quá hạn | — | `List<BorrowRecord>` |
 | `GET` | `/api/borrow/count-book-not-return` | ADMIN | Đếm số sách chưa trả | — | `long` |
 | `GET` | `/api/borrow/current` | ADMIN | Danh sách chi tiết các sách đang mượn | — | `List<BorrowRecord>` |
+| `GET` | `/api/borrow/history/all?page=&size=` | ADMIN | Lịch sử mượn/trả (phân trang) | Query params | `Page<BorrowRecord>` |
+| `POST` | `/api/borrow/send-reminder/{id}` | ADMIN | Gửi email nhắc hạn trả | Path param | `String` |
 
 ### 7.4. Quy tắc nghiệp vụ khi mượn sách
 
@@ -278,21 +303,18 @@ public enum BorrowStatus {
 Khi thủ thư tạo phiếu mượn cho bạn đọc:
 
 1. Kiểm tra User tồn tại
-2. Kiểm tra Book tồn tại
-3. Kiểm tra availableQuantity > 0
-4. Kiểm tra số sách chưa trả của User < 3 (returnDate IS NULL)
-5. Kiểm tra User không có sách OVERDUE
-6. Nếu tất cả hợp lệ:
+2. Kiểm tra BookCopy tồn tại và status = AVAILABLE
+3. Kiểm tra số sách chưa trả của User < 3 (returnDate IS NULL)
+4. Kiểm tra User không có sách OVERDUE
+5. Nếu tất cả hợp lệ:
    - Tạo BorrowRecord:
      - borrowDate = LocalDate.now()
-     - dueDate = borrowDate + 14 ngày
+     - dueDate = borrowDate + 14 ngày (hoặc do ADMIN chỉ định)
      - status = BORROWING
-     - user, book
-   - Giảm availableQuantity của Book đi 1
-   - Nếu availableQuantity về 0:
-     - status = BORROWED (BookStatus)
+     - user, bookCopy
+   - Đổi status của BookCopy thành BORROWED
    - Lưu BorrowRecord
-   - Lưu Book
+   - Lưu BookCopy
 ```
 
 ### 7.5. Quy tắc nghiệp vụ khi trả sách
@@ -300,16 +322,14 @@ Khi thủ thư tạo phiếu mượn cho bạn đọc:
 ```
 Khi ADMIN gửi yêu cầu trả sách:
 
-1. Tìm BorrowRecord theo bookId (với returnDate IS NULL)
+1. Tìm BorrowRecord theo bookCopyId (với returnDate IS NULL)
 2. Nếu không tìm thấy → báo lỗi
 3. Nếu tìm thấy:
    - returnDate = LocalDate.now()
    - status = RETURNED
-   - Tăng availableQuantity của Book lên 1
-   - Nếu availableQuantity > 0:
-     - status = AVAILABLE (BookStatus)
+   - Đổi status của BookCopy thành AVAILABLE
    - Lưu BorrowRecord
-   - Lưu Book
+   - Lưu BookCopy
 ```
 
 ### 7.6. Quy tắc OVERDUE
@@ -354,7 +374,7 @@ THÌ status = OVERDUE
 | Trường | Kiểu | Nguồn dữ liệu |
 |---|---|---|
 | `totalBooks` | long | Số lượng Book (count, không tính soft delete) |
-| `totalBookCopies` | long | Tổng `totalQuantity` của tất cả sách |
+| `totalBookCopies` | long | Số lượng BookCopy (`bookCopyRepository.count()`) |
 | `borrowedBooks` | long | Số BorrowRecord có `status = BORROWING` |
 | `overdueBooks` | long | Số BorrowRecord có `status = OVERDUE` |
 | `totalUsers` | long | Số lượng User (count, không tính soft delete) |
@@ -465,6 +485,7 @@ public class ErrorResponse {
 |---|---|---|
 | `User` | `is_deleted` | `@SoftDelete` |
 | `Book` | `is_deleted` | `@SoftDelete` |
+| `BookCopy` | — | **KHÔNG** soft delete |
 | `Category` | `is_deleted` | `@SoftDelete` |
 
 `BorrowRecord`: **KHÔNG** soft delete (xóa cứng).
@@ -501,7 +522,7 @@ public class ErrorResponse {
 |---|---|---|
 | `/api/books` | GET | Public |
 | `/api/books/{id}` | GET | Public |
-| `/api/books/search` | GET | Public |
+| `/api/books/{id}/copies` | GET | Public |
 | `/api/books` | POST | ADMIN |
 | `/api/books/{id}` | PUT | ADMIN |
 | `/api/books/{id}` | DELETE | ADMIN |
@@ -524,6 +545,8 @@ public class ErrorResponse {
 | `/api/borrow/overdue` | GET | ADMIN |
 | `/api/borrow/count-book-not-return` | GET | ADMIN |
 | `/api/borrow/current` | GET | ADMIN |
+| `/api/borrow/history/all` | GET | ADMIN |
+| `/api/borrow/send-reminder/{id}` | POST | ADMIN |
 
 ### Dashboard
 

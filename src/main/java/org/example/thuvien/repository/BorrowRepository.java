@@ -12,7 +12,7 @@ import java.util.Optional;
 
 public interface BorrowRepository extends JpaRepository<BorrowRecord, Long> {
 
-    Optional<BorrowRecord> findByBookIdAndReturnDateIsNull(Long bookId);
+    Optional<BorrowRecord> findByBookCopyIdAndReturnDateIsNull(Long bookCopyId);
 
     long countByReturnDateIsNull();
 
@@ -26,17 +26,9 @@ public interface BorrowRepository extends JpaRepository<BorrowRecord, Long> {
 
     List<BorrowRecord> findByUserIdAndReturnDateIsNull(Long userId);
 
-    List<BorrowRecord> findByUserIdentityCard(String identityCard);
-
-    List<BorrowRecord> findByUserFullNameContainingIgnoreCase(String fullName);
-
     long countByStatus(BorrowStatus status);
 
-    @Query("SELECT b FROM BorrowRecord b WHERE b.status = :status AND b.dueDate BETWEEN :start AND :end")
-    List<BorrowRecord> findByStatusAndDueDateBetween(
-            @Param("status") BorrowStatus status,
-            @Param("start") LocalDate start,
-            @Param("end") LocalDate end);
+    List<BorrowRecord> findAllByOrderByBorrowDateDesc();
 
     @Query("SELECT b FROM BorrowRecord b WHERE b.status = :status AND b.dueDate < :today")
     List<BorrowRecord> findByStatusAndDueDateBefore(
@@ -47,9 +39,4 @@ public interface BorrowRepository extends JpaRepository<BorrowRecord, Long> {
     List<BorrowRecord> findByStatusAndReturnDateIsNullAndDueDateLessThanEqual(
             @Param("status") BorrowStatus status,
             @Param("date") LocalDate date);
-
-    List<BorrowRecord> findByUserIdAndStatus(Long userId, BorrowStatus status);
-
-    @Query("SELECT COALESCE(SUM(b.totalQuantity), 0) FROM Book b")
-    long sumTotalQuantity();
 }

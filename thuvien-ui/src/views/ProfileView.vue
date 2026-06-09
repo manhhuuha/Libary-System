@@ -13,10 +13,6 @@
         <tr><td>Ngày tạo</td><td>{{ auth.user?.createdAt?.slice(0, 10) }}</td></tr>
       </table>
     </div>
-    <div class="mt-1 flex gap">
-      <router-link to="/profile/borrow-history" class="btn">Lịch sử mượn</router-link>
-      <router-link to="/profile/current-borrows" class="btn">Đang mượn</router-link>
-    </div>
   </div>
 </template>
 

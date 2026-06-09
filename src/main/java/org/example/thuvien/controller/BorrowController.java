@@ -38,4 +38,9 @@ public class BorrowController {
     public long countBookNotReturn() {
         return borrowService.countBookNotReturn();
     }
+
+    @GetMapping("/current")
+    public List<BorrowRecord> getCurrentBorrows() {
+        return borrowService.getAllCurrentBorrows();
+    }
 }

@@ -1,0 +1,1 @@
+import{x as e}from"./index-Cck0cQ8l.js";const b={getAll:()=>e.get("/books"),getById:o=>e.get(`/books/${o}`),search:o=>e.get("/books/search",{params:o}),create:o=>e.post("/books",o),update:(o,t)=>e.put(`/books/${o}`,t),delete:o=>e.delete(`/books/${o}`)};export{b};

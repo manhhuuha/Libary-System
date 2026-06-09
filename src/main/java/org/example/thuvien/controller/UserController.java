@@ -37,6 +37,11 @@ public class UserController {
         return userService.getCurrentUserCurrentBorrows();
     }
 
+    @GetMapping("/search")
+    public List<UserResponseDTO> search(@RequestParam String keyword) {
+        return userService.searchUsers(keyword);
+    }
+
     @GetMapping
     public List<UserResponseDTO> getAll() {
         return userService.getAllUsers();

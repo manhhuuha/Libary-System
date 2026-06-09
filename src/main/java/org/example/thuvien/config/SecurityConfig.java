@@ -43,11 +43,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/categories").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasRole("ADMIN")
 
-                        .requestMatchers(HttpMethod.POST, "/api/borrow").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/borrow").hasRole("ADMIN")
                         .requestMatchers("/api/borrow/return").hasRole("ADMIN")
                         .requestMatchers("/api/borrow/due-soon").hasRole("ADMIN")
                         .requestMatchers("/api/borrow/overdue").hasRole("ADMIN")
                         .requestMatchers("/api/borrow/count-book-not-return").hasRole("ADMIN")
+                        .requestMatchers("/api/borrow/current").hasRole("ADMIN")
 
                         .requestMatchers("/api/dashboard/**").hasRole("ADMIN")
 

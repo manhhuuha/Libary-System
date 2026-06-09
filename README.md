@@ -1,43 +1,72 @@
-# 📚 Library Management System
+# Thư viện — Library Management System
 
-Hệ thống quản lý thư viện được xây dựng nhằm hỗ trợ quản lý sách, người dùng và các hoạt động mượn/trả một cách hiệu quả.
+Hệ thống quản lý thư viện trường học: quản lý sách, người dùng (học sinh/giáo viên/khách), danh mục và hoạt động mượn/trả sách. Hỗ trợ phân quyền, thống kê dashboard, và gửi email nhắc nhở hạn trả.
 
----
+## Công nghệ
 
-## 🚀 Công nghệ sử dụng
+| Thành phần | Công nghệ |
+|---|---|
+| Ngôn ngữ | Java 21 |
+| Framework | Spring Boot 4.0.6 |
+| Database | H2 (demo) / PostgreSQL 17 (production) |
+| ORM | Spring Data JPA + Hibernate |
+| Security | Spring Security (HTTP Basic, BCrypt) |
+| Mapping | MapStruct 1.6.3 + Lombok 1.18.34 |
+| API docs | springdoc-openapi 2.8.3 (Swagger UI) |
 
-- **Java 21**  
-  Phiên bản LTS mới nhất của Java, tận dụng các tính năng hiện đại giúp tối ưu hiệu năng và code rõ ràng hơn.
+## Yêu cầu
 
-- **Spring Boot 4.0.6**  
-  Framework cốt lõi giúp:
-    - Tự động cấu hình (auto-configuration)
-    - Nhúng sẵn Tomcat Server
-    - Tăng tốc độ phát triển ứng dụng
+- **JDK 21** (kiểm tra: `java -version`)
+- **Maven Wrapper** (đi kèm project — `mvnw.cmd` / `mvnw`)
 
-- **PostgreSQL 17**  
-  Hệ quản trị cơ sở dữ liệu quan hệ mạnh mẽ:
-    - Đảm bảo tính toàn vẹn dữ liệu
-    - Hỗ trợ truy vấn phức tạp
-    - Hiệu năng cao và ổn định
+## Chạy ứng dụng
 
----
+### Demo (H2) — mặc định, không cần cài đặt
 
-## 📦 Tính năng chính (dự kiến / đang phát triển)
-
-- 📖 Quản lý sách (thêm, sửa, xóa, tìm kiếm)
-- 👤 Quản lý người dùng
-- 🔄 Quản lý mượn / trả sách
-- 🔍 Tìm kiếm và lọc dữ liệu
-- 🔐 phân quyền người dùng
-
----
-
-## ⚙️ Cài đặt & chạy project
-
-### 1. Clone repository
-
-```bash
-git clone https://github.com/manhhuuha/Libary-System.git
-cd Libary-System
+```powershell
+.\mvnw.cmd spring-boot:run
 ```
+
+Lần chạy đầu tiên tự động seed dữ liệu mẫu (1 admin, 99 bạn đọc, 10 danh mục, 1000 sách).
+
+Database H2 lưu ở `./data/library_db`, persist giữa các lần restart.
+
+### Production (PostgreSQL)
+
+Chuyển file `application.properties` sang cấu hình PostgreSQL (port 5432, database `library_db`, user `postgres`, password `123456`).
+
+## Tài khoản mặc định
+
+| Vai trò | Username | Password |
+|---|---|---|
+| Thủ thư (ADMIN) | `user1` | `123456` |
+| Bạn đọc (PATRON) | `user2` … `user100` | `123456` |
+
+## API documentation
+
+- Swagger UI: [http://localhost:8080/swagger-ui/](http://localhost:8080/swagger-ui/)
+- OpenAPI JSON: [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
+
+## Cấu trúc thư mục
+
+```
+src/main/java/org/example/thuvien/
+├── config/          # Security, CORS
+├── controller/      # REST controllers
+├── dto/             # Request/Response DTOs
+├── exception/       # Global exception handler + custom exceptions
+├── mapper/          # MapStruct mappers
+├── model/           # JPA entities
+├── repository/      # Spring Data repositories
+├── seed/            # Data seeder (CommandLineRunner)
+└── service/         # Business logic layer
+```
+
+## Build & Test
+
+```powershell
+.\mvnw.cmd clean install   # Build + test
+.\mvnw.cmd test             # Chạy test
+```
+
+Tests yêu cầu PostgreSQL đang chạy (xem AGENTS.md).

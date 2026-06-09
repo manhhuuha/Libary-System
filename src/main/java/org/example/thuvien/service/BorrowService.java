@@ -75,6 +75,10 @@ public class BorrowService {
         return borrowRepository.countByReturnDateIsNull();
     }
 
+    public List<BorrowRecord> getAllCurrentBorrows() {
+        return borrowRepository.findByReturnDateIsNull();
+    }
+
     public List<BorrowRecord> getDueSoon() {
         return borrowRepository.findByStatusAndReturnDateIsNullAndDueDateLessThanEqual(
                 BorrowStatus.BORROWING, LocalDate.now().plusDays(3));

@@ -68,7 +68,7 @@ Hệ thống quản lý thư viện trường học, cho phép quản lý sách,
 | `GET /api/categories` | ✓ | ✓ | ✓ |
 | `POST /api/categories` | ✓ | | |
 | `DELETE /api/categories/{id}` | ✓ | | |
-| `POST /api/borrow` | ✓ | ✓ | |
+| `POST /api/borrow` | ✓ | | |
 | `PUT /api/borrow/return` | ✓ | | |
 | `GET /api/borrow/due-soon` | ✓ | | |
 | `GET /api/borrow/overdue` | ✓ | | |
@@ -105,8 +105,9 @@ Hệ thống quản lý thư viện trường học, cho phép quản lý sách,
 |---|---|---|---|---|---|
 | `POST` | `/api/users/register` | Public | Đăng ký tài khoản mới | `UserRequestDTO` | `UserResponseDTO` |
 | `GET` | `/api/users/me` | Authenticated | Lấy thông tin người dùng hiện tại | — | `UserResponseDTO` |
-| `GET` | `/api/users/me/borrow-history` | Authenticated | Lịch sử mượn của bản thân | — | `List<BorrowHistoryDTO>` |
+| `GET` | `/api/users/me/borrow-history` | Authenticated | Lịch sử mượn của bản thân | — | `List<BorrowRecord>` |
 | `GET` | `/api/users/me/current-borrows` | Authenticated | Các sách đang mượn | — | `List<BorrowRecord>` |
+| `GET` | `/api/users/search?keyword=` | ADMIN | Tìm kiếm người dùng theo tên/CCCD | Query param | `List<UserResponseDTO>` |
 | `GET` | `/api/users` | ADMIN | Danh sách tất cả người dùng | — | `List<UserResponseDTO>` |
 | `GET` | `/api/users/{id}` | ADMIN | Chi tiết người dùng | — | `UserResponseDTO` |
 | `PUT` | `/api/users/{id}` | ADMIN | Cập nhật thông tin | `UserRequestDTO` | `UserResponseDTO` |
@@ -264,16 +265,17 @@ public enum BorrowStatus {
 
 | Phương thức | Endpoint | Quyền | Mô tả | Request | Response |
 |---|---|---|---|---|---|
-| `POST` | `/api/borrow?userId=&bookId=` | Authenticated | Mượn sách | Query params | `BorrowRecord` |
+| `POST` | `/api/borrow?userId=&bookId=` | ADMIN | Mượn sách (thủ thư tạo phiếu) | Query params | `BorrowRecord` |
 | `PUT` | `/api/borrow/return?bookId=` | ADMIN | Đánh dấu đã trả sách | Query param | `BorrowRecord` |
 | `GET` | `/api/borrow/due-soon` | ADMIN | Danh sách sắp đến hạn (≤ 3 ngày) | — | `List<BorrowRecord>` |
 | `GET` | `/api/borrow/overdue` | ADMIN | Danh sách quá hạn | — | `List<BorrowRecord>` |
 | `GET` | `/api/borrow/count-book-not-return` | ADMIN | Đếm số sách chưa trả | — | `long` |
+| `GET` | `/api/borrow/current` | ADMIN | Danh sách chi tiết các sách đang mượn | — | `List<BorrowRecord>` |
 
 ### 7.4. Quy tắc nghiệp vụ khi mượn sách
 
 ```
-Khi người dùng gửi yêu cầu mượn sách:
+Khi thủ thư tạo phiếu mượn cho bạn đọc:
 
 1. Kiểm tra User tồn tại
 2. Kiểm tra Book tồn tại
@@ -444,11 +446,13 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 ### 10.3. ErrorResponse DTO
 
 ```java
-public record ErrorResponse(
-    int status,
-    String message,
-    LocalDateTime timestamp
-) {}
+@Data
+@AllArgsConstructor
+public class ErrorResponse {
+    private int status;
+    private String message;
+    private LocalDateTime timestamp;
+}
 ```
 
 ---
@@ -486,6 +490,7 @@ public record ErrorResponse(
 | `/api/users/me/borrow-history` | GET | Authenticated |
 | `/api/users/me/current-borrows` | GET | Authenticated |
 | `/api/users` | GET | ADMIN |
+| `/api/users/search` | GET | ADMIN |
 | `/api/users/{id}` | GET | ADMIN |
 | `/api/users/{id}` | PUT | ADMIN |
 | `/api/users/{id}` | DELETE | ADMIN |
@@ -513,11 +518,12 @@ public record ErrorResponse(
 
 | Endpoint | Method | Auth |
 |---|---|---|
-| `/api/borrow` | POST | Authenticated |
+| `/api/borrow` | POST | ADMIN |
 | `/api/borrow/return` | PUT | ADMIN |
 | `/api/borrow/due-soon` | GET | ADMIN |
 | `/api/borrow/overdue` | GET | ADMIN |
 | `/api/borrow/count-book-not-return` | GET | ADMIN |
+| `/api/borrow/current` | GET | ADMIN |
 
 ### Dashboard
 

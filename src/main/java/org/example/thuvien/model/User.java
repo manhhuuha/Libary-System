@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 import org.hibernate.annotations.SoftDelete;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -30,19 +31,22 @@ public class User {
     private String phoneNumber;
 
     @NotBlank(message = "Căn cước công dân không được để trống")
-    @Column(unique = true) // Đảm bảo không trùng CCCD
+    @Column(unique = true)
     private String identityCard;
 
-    // Các trường dành cho Admin đăng nhập
-    // Với người dùng bình thường, Admin có thể để trống hoặc hệ thống tự sinh
     @Column(unique = true)
     private String username;
 
     private String password;
 
-    private String role; // "ADMIN" hoặc "PATRON" (Người mượn)
+    private String role;
 
-    // Quan hệ 1-N: Một User có thể có nhiều bản ghi mượn sách
+    private String userType;
+
+    private Boolean active = true;
+
+    private LocalDateTime createdAt;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     @JsonIgnore
     private List<BorrowRecord> borrowRecords;

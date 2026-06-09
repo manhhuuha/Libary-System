@@ -2,7 +2,7 @@ package org.example.thuvien.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.*; // Import cái này
+import jakarta.validation.constraints.*;
 import lombok.Data;
 import org.hibernate.annotations.SoftDelete;
 
@@ -34,12 +34,19 @@ public class Book {
     @OneToMany(mappedBy = "book")
     @JsonIgnore
     private List<BorrowRecord> borrowRecords;
+
     @Enumerated(EnumType.STRING)
     private BookStatus status = BookStatus.AVAILABLE;
+
     private String location;
 
-    // Quan hệ N-1: Nhiều cuốn sách thuộc về 1 Lĩnh vực
-    @ManyToOne(fetch = FetchType.LAZY) // Dùng LAZY để tối ưu hiệu năng (chỉ tải Category khi cần)
-    @JoinColumn(name = "category_id") // Tên cột khóa ngoại trong bảng books
+    @Min(value = 0, message = "Tổng số lượng không được âm")
+    private int totalQuantity;
+
+    @Min(value = 0, message = "Số lượng khả dụng không được âm")
+    private int availableQuantity;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
     private Category category;
 }

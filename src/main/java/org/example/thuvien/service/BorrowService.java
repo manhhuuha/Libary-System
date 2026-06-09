@@ -1,68 +1,98 @@
 package org.example.thuvien.service;
 
-import org.example.thuvien.model.Book;
-import org.example.thuvien.model.BookStatus;
-import org.example.thuvien.model.BorrowRecord;
-import org.example.thuvien.model.User;
+import org.example.thuvien.exception.BusinessException;
+import org.example.thuvien.exception.ResourceNotFoundException;
+import org.example.thuvien.model.*;
+import org.example.thuvien.repository.BookRepository;
 import org.example.thuvien.repository.BorrowRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Service
 public class BorrowService {
     @Autowired private BorrowRepository borrowRepository;
+    @Autowired private BookRepository bookRepository;
     @Autowired private UserService userService;
-    @Autowired private BookService bookService;
 
     @Transactional
     public BorrowRecord borrowBook(Long userId, Long bookId) {
         User user = userService.getUserById(userId);
-        Book book = bookService.getBookById(bookId);
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sách ID: " + bookId));
 
-        // Kiểm tra trực tiếp trạng thái
-        if (book.getStatus() == BookStatus.BORROWED) {
-            throw new RuntimeException("Xin lỗi, sách này hiện đã có người mượn rồi!");
+        if (book.getAvailableQuantity() <= 0) {
+            throw new BusinessException("Xin lỗi, sách này hiện đã hết bản có thể mượn!");
         }
 
-        // Kiểm tra luật "Tối đa 3 cuốn"
-        if (borrowRepository.countByUserIdAndReturnDateIsNull(userId) >= 3) {
-            throw new RuntimeException("Bạn đã mượn đủ giới hạn 3 cuốn sách!");
+        long currentBorrowed = borrowRepository.countByUserIdAndReturnDateIsNull(userId);
+        if (currentBorrowed >= 3) {
+            throw new BusinessException("Bạn đã mượn đủ giới hạn 3 cuốn sách!");
         }
 
-        // Kiểm tra luật "Không được có sách quá hạn"
-        if (borrowRepository.existsByUserIdAndReturnDateIsNullAndDueDateBefore(userId, LocalDate.now())) {
-            throw new RuntimeException("Bạn đang có sách quá hạn chưa trả, không thể mượn thêm!");
+        boolean hasOverdue = borrowRepository.existsByUserIdAndReturnDateIsNullAndDueDateBefore(userId, LocalDate.now());
+        if (hasOverdue) {
+            throw new BusinessException("Bạn đang có sách quá hạn chưa trả, không thể mượn thêm!");
         }
 
-        // Đổi trạng thái sang Đã mượn
-        book.setStatus(BookStatus.BORROWED);
-        bookService.saveBook(book); // Lưu lại trạng thái mới cho sách
+        book.setAvailableQuantity(book.getAvailableQuantity() - 1);
+        if (book.getAvailableQuantity() == 0) {
+            book.setStatus(BookStatus.BORROWED);
+        }
+        bookRepository.save(book);
 
         BorrowRecord record = new BorrowRecord();
         record.setUser(user);
         record.setBook(book);
         record.setBorrowDate(LocalDate.now());
+        record.setDueDate(LocalDate.now().plusDays(14));
+        record.setStatus(BorrowStatus.BORROWING);
         return borrowRepository.save(record);
     }
 
+    @Transactional
     public BorrowRecord returnBook(Long bookId) {
         BorrowRecord record = borrowRepository.findByBookIdAndReturnDateIsNull(bookId)
-                .orElseThrow(() -> new RuntimeException("Dữ liệu mượn trả không hợp lệ!"));
+                .orElseThrow(() -> new ResourceNotFoundException("Dữ liệu mượn trả không hợp lệ!"));
 
         record.setReturnDate(LocalDate.now());
+        record.setStatus(BorrowStatus.RETURNED);
 
-        // Trả sách xong thì đổi lại trạng thái Có sẵn
         Book book = record.getBook();
-        book.setStatus(BookStatus.AVAILABLE);
-        bookService.saveBook(book);
+        book.setAvailableQuantity(book.getAvailableQuantity() + 1);
+        if (book.getAvailableQuantity() > 0) {
+            book.setStatus(BookStatus.AVAILABLE);
+        }
+        bookRepository.save(book);
 
         return borrowRepository.save(record);
     }
 
-    public long countBookNotReturn(){
+    public long countBookNotReturn() {
         return borrowRepository.countByReturnDateIsNull();
+    }
+
+    public List<BorrowRecord> getDueSoon() {
+        return borrowRepository.findByStatusAndReturnDateIsNullAndDueDateLessThanEqual(
+                BorrowStatus.BORROWING, LocalDate.now().plusDays(3));
+    }
+
+    public List<BorrowRecord> getOverdue() {
+        List<BorrowRecord> overdueRecords = borrowRepository.findByStatusAndDueDateBefore(
+                BorrowStatus.BORROWING, LocalDate.now());
+        for (BorrowRecord record : overdueRecords) {
+            if (record.getStatus() != BorrowStatus.OVERDUE) {
+                record.setStatus(BorrowStatus.OVERDUE);
+                borrowRepository.save(record);
+            }
+        }
+        return overdueRecords;
+    }
+
+    public List<BorrowRecord> getCurrentBorrowsByUser(Long userId) {
+        return borrowRepository.findByUserIdAndReturnDateIsNull(userId);
     }
 }

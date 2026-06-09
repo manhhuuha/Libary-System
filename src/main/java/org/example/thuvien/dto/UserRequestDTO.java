@@ -18,8 +18,7 @@ public record UserRequestDTO(
         @NotBlank(message = "CCCD không được để trống")
         String identityCard,
 
-        // Các trường này có thể để trống nếu chỉ là người mượn bình thường (PATRON)
         String username,
         String password,
-        String role
+        String userType
 ) {}

@@ -81,8 +81,8 @@ public class BorrowService {
     }
 
     public List<BorrowRecord> getOverdue() {
-        List<BorrowRecord> overdueRecords = borrowRepository.findByStatusAndDueDateBefore(
-                BorrowStatus.BORROWING, LocalDate.now());
+        List<BorrowRecord> overdueRecords = borrowRepository.findByStatusesAndDueDateBefore(
+                List.of(BorrowStatus.BORROWING, BorrowStatus.OVERDUE), LocalDate.now());
         for (BorrowRecord record : overdueRecords) {
             if (record.getStatus() != BorrowStatus.OVERDUE) {
                 record.setStatus(BorrowStatus.OVERDUE);

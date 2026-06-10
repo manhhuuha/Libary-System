@@ -30,9 +30,9 @@ public interface BorrowRepository extends JpaRepository<BorrowRecord, Long> {
 
     List<BorrowRecord> findAllByOrderByBorrowDateDesc();
 
-    @Query("SELECT b FROM BorrowRecord b WHERE b.status = :status AND b.dueDate < :today")
-    List<BorrowRecord> findByStatusAndDueDateBefore(
-            @Param("status") BorrowStatus status,
+    @Query("SELECT b FROM BorrowRecord b WHERE b.status IN :statuses AND b.dueDate < :today")
+    List<BorrowRecord> findByStatusesAndDueDateBefore(
+            @Param("statuses") List<BorrowStatus> statuses,
             @Param("today") LocalDate today);
 
     @Query("SELECT b FROM BorrowRecord b WHERE b.status = :status AND b.returnDate IS NULL AND b.dueDate <= :date")
